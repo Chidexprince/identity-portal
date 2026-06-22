@@ -1,46 +1,43 @@
 /**
- * Server-only service responsible for calling ReqRes and returning sanitized identity users.
+ * Server-side service for identity directory use cases.
  *
- * This isolates external API communication from route handlers and keeps the route thin.
+ * This service coordinates the identity directory workflow:
+ * - fetch raw user data from the upstream client
+ * - validate domain expectations
+ * - map raw upstream data into the client-safe identity contract
+ *
+ * It does not know about low-level fetch options, headers, API keys, or timeout
+ * mechanics.
  */
 
 import type {
-    ReqResSingleUserResponse,
-    ReqResUsersResponse,
-} from './identity-directory.types';
-import { mapReqResUserToIdentityUser } from './identity-directory.mapper';
+    IdentityUserResponse,
+    IdentityUsersResponse,
+} from '@/features/identity-directory/types/identity-user';
+import { IdentityDirectoryNotFoundError } from './identity-directory.errors';
+import {
+    mapReqResSingleUserResponseToIdentityUserResponse,
+    mapReqResUsersResponseToIdentityUsersResponse,
+} from './identity-directory.mapper';
+import {
+    fetchIdentityUserByIdFromUpstream,
+    fetchIdentityUsersFromUpstream,
+} from './identity-directory.client';
 
-const REQRES_BASE_URL = 'https://reqres.in/api';
+export async function getIdentityUsers(): Promise<IdentityUsersResponse> {
+    const response = await fetchIdentityUsersFromUpstream();
 
-export async function getIdentityUsers() {
-    const response = await fetch(`${REQRES_BASE_URL}/users?page=1`, {
-        /**
-         * BFF cache decision:
-         * 
-         * We keep the server fetch dynamic so client-side staleTime/gcTime decisions are explicit.
-         */
-        cache: 'no-store',
-    });
-
-    if (!response.ok) {
-        throw new Error('Failed to fetch users from identity upstream');
-    }
-
-    const payload = (await response.json()) as ReqResUsersResponse;
-
-    return payload.data.map(mapReqResUserToIdentityUser);
+    return mapReqResUsersResponseToIdentityUsersResponse(response);
 }
 
-export async function getIdentityUserById(id: string) {
-    const response = await fetch(`${REQRES_BASE_URL}/users/${id}`, {
-        cache: 'no-store',
-    });
+export async function getIdentityUserById(
+    userId: number,
+): Promise<IdentityUserResponse> {
+    const response = await fetchIdentityUserByIdFromUpstream(userId);
 
-    if (!response.ok) {
-        throw new Error('Failed to fetch user from identity upstream');
+    if (!response.data) {
+        throw new IdentityDirectoryNotFoundError(userId);
     }
 
-    const payload = (await response.json()) as ReqResSingleUserResponse;
-
-    return mapReqResUserToIdentityUser(payload.data);
+    return mapReqResSingleUserResponseToIdentityUserResponse(response);
 }

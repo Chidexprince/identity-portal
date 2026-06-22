@@ -1,34 +1,64 @@
 /**
- * Maps raw ReqRes users into the client-safe IdentityUser contract.
+ * Maps raw ReqRes upstream data into client-safe identity directory contracts.
  *
- * Security/architecture decision:
- * The frontend is treated as "untrusted" and never receives the raw third-party payload.
- * This mapper gives the BFF a clear place to sanitize, rename, enrich, or remove fields.
+ * This is the core BFF sanitization layer. It prevents the frontend from
+ * depending on ReqRes field names and gives us a controlled place to enrich,
+ * remove, rename, or normalize identity data before it reaches the browser.
  */
 
-import type { IdentityUser } from '@/features/identity-directory/types/identity-user';
-import type { ReqResUser } from './identity-directory.types';
+import type {
+    IdentityUser,
+    IdentityUserResponse,
+    IdentityUsersResponse,
+} from '@/features/identity-directory/types/identity-user';
+import type {
+    ReqResSingleUserResponse,
+    ReqResUser,
+    ReqResUsersResponse,
+} from './identity-directory.types';
 
 export function mapReqResUserToIdentityUser(user: ReqResUser): IdentityUser {
     return {
         id: user.id,
-        displayName: `${user.first_name} ${user.last_name}`,
         email: user.email,
+
+        /**
+         * We expose a frontend-friendly displayName instead of leaking ReqRes'
+         * first_name and last_name fields into the client contract.
+         */
+        displayName: `${user.first_name} ${user.last_name}`,
+
+        /**
+         * Rename avatar to avatarUrl so the client receives a clearer UI-facing
+         * field name.
+         */
         avatarUrl: user.avatar,
 
         /**
-         * Mock server-side identity policy flag.
-         *
-         * In a real Entra ID-backed portal, this could come from conditional access,
-         * user risk, group membership, or identity-governance policy.
+         * Mock server-side enrichment to simulate enterprise identity policy.
+         * This should be decided by the server, not the untrusted browser.
          */
         requiresMFA: true,
+        accountStatus: 'active',
+    };
+}
 
-        /**
-         * Simulated domain enrichment.
-         *
-         * This avoids making the client infer identity rules from raw API data.
-         */
-        identityAssuranceLevel: user.id % 2 === 0 ? 'enhanced' : 'standard',
+export function mapReqResUsersResponseToIdentityUsersResponse(
+    response: ReqResUsersResponse,
+): IdentityUsersResponse {
+    return {
+        users: response.data.map(mapReqResUserToIdentityUser),
+        page: response.page,
+        perPage: response.per_page,
+        total: response.total,
+        totalPages: response.total_pages,
+    };
+}
+
+export function mapReqResSingleUserResponseToIdentityUserResponse(
+    response: ReqResSingleUserResponse,
+): IdentityUserResponse {
+    return {
+        user: mapReqResUserToIdentityUser(response.data),
     };
 }
