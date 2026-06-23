@@ -1,8 +1,8 @@
 /**
- * BFF route for the identity directory list.
+ * BFF route handler for the identity users list.
  *
- * The browser calls this endpoint instead of calling ReqRes directly.
- * This allows the server to sanitize, enrich, and control the data contract.
+ * The frontend calls this route instead of calling ReqRes directly. The route
+ * returns the sanitized IdentityUsersResponse produced by the server service.
  */
 
 import { NextResponse } from 'next/server';
@@ -10,16 +10,24 @@ import { getIdentityUsers } from '@/server/identity-directory/identity-directory
 
 export async function GET() {
     try {
-        const users = await getIdentityUsers();
+        const identityUsersResponse = await getIdentityUsers();
 
-        return NextResponse.json({ users });
+        return NextResponse.json(identityUsersResponse, {
+            headers: {
+                'Cache-Control': 'no-store',
+            },
+        });
     } catch {
         return NextResponse.json(
             {
-                code: 'IDENTITY_USERS_FETCH_FAILED',
                 message: 'Unable to load identity users.',
             },
-            { status: 502 },
+            {
+                status: 502,
+                headers: {
+                    'Cache-Control': 'no-store',
+                },
+            },
         );
     }
 }
