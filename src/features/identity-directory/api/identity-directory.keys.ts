@@ -12,4 +12,13 @@ export const identityDirectoryKeys = {
 
     user: (userId: number) =>
         [...identityDirectoryKeys.all, 'users', userId] as const,
+
+    /**
+   * Placeholder key used when no user is selected.
+   *
+   * The query is disabled in this state, but TanStack Query still requires a
+   * stable query key.
+   */
+    userPlaceholder: () =>
+        [...identityDirectoryKeys.all, 'users', 'not-selected'] as const,
 };

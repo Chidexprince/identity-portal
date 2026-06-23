@@ -1,37 +1,23 @@
 /**
  * Client-side API functions for the identity directory feature.
  *
- * The browser calls our Next.js BFF routes, never the upstream ReqRes API.
- * This keeps the frontend dependent on our client-safe contract rather than
- * the external provider shape.
+ * This module is domain-specific. It does not call ReqRes and it does not own
+ * low-level fetch mechanics. Instead, it calls the shared BFF client, which
+ * only talks to internal Next.js route handlers.
  */
 
+import { getBffJson } from '@/shared/api/bff-client';
 import type {
-    IdentityUser,
     IdentityUserResponse,
     IdentityUsersResponse,
 } from '../types/identity-user';
 
-async function parseJsonResponse<TResponse>(response: Response): Promise<TResponse> {
-    if (!response.ok) {
-        throw new Error('Identity directory request failed');
-    }
-
-    return response.json() as Promise<TResponse>;
+export function fetchIdentityUsers(): Promise<IdentityUsersResponse> {
+    return getBffJson<IdentityUsersResponse>('/api/users');
 }
 
-export async function fetchIdentityUsers(): Promise<IdentityUser[]> {
-    const response = await fetch('/api/users');
-    const payload = await parseJsonResponse<IdentityUsersResponse>(response);
-
-    return payload.users;
-}
-
-export async function fetchIdentityUserById(
+export function fetchIdentityUserById(
     userId: number,
-): Promise<IdentityUser> {
-    const response = await fetch(`/api/users/${userId}`);
-    const payload = await parseJsonResponse<IdentityUserResponse>(response);
-
-    return payload.user;
+): Promise<IdentityUserResponse> {
+    return getBffJson<IdentityUserResponse>(`/api/users/${userId}`);
 }
